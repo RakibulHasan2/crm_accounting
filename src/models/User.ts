@@ -93,7 +93,6 @@ const userSchema = new Schema<IUser>({
 });
 
 // Index for better query performance
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1, status: 1 });
 
 // Virtual for user display name
@@ -108,6 +107,6 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
-const User = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
+const User = (mongoose.models && mongoose.models.User) || mongoose.model<IUser>('User', userSchema);
 
 export default User;
