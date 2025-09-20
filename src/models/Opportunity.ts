@@ -226,7 +226,7 @@ opportunitySchema.index({ contactId: 1 });
 opportunitySchema.index({ expectedCloseDate: 1 });
 opportunitySchema.index({ stage: 1, priority: 1 });
 
-const Opportunity = mongoose.models.Opportunity || 
+const Opportunity = (mongoose.models && mongoose.models.Opportunity) || 
   mongoose.model<IOpportunity>('Opportunity', opportunitySchema);
 
 export default Opportunity;

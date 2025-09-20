@@ -267,7 +267,7 @@ activitySchema.index({ type: 1, status: 1 });
 activitySchema.index({ 'linkedTo.type': 1, 'linkedTo.id': 1 });
 activitySchema.index({ createdBy: 1 });
 
-const Activity = mongoose.models.Activity || 
+const Activity = (mongoose.models && mongoose.models.Activity) || 
   mongoose.model<IActivity>('Activity', activitySchema);
 
 export default Activity;
