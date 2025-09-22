@@ -7,7 +7,7 @@ import { authConfig } from '@/lib/auth/config';
 // PUT /api/admin/users/[id] - Update user
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authConfig);
@@ -21,7 +21,8 @@ export async function PUT(
     const body = await request.json();
     const { name, email, role, status, phone, department } = body;
 
-    const user = await User.findById(params.id);
+    const { id } = await params;
+    const user = await User.findById(id);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -49,7 +50,7 @@ export async function PUT(
 // DELETE /api/admin/users/[id] - Delete user
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authConfig);
@@ -60,7 +61,8 @@ export async function DELETE(
 
     await dbConnect();
 
-    const user = await User.findById(params.id);
+    const { id } = await params;
+    const user = await User.findById(id);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -70,7 +72,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
     }
 
-    await User.findByIdAndDelete(params.id);
+    await User.findByIdAndDelete(id);
     return NextResponse.json({ message: 'User deleted successfully' });
 
   } catch (error) {
