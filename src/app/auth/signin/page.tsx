@@ -26,6 +26,7 @@ export default function SignIn() {
       if (result?.error) {
         setError("Invalid email or password");
       } else {
+        // Simple redirect - let the dashboard page handle role-based routing
         router.push("/dashboard");
       }
     } catch {
