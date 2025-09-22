@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 interface Account {
@@ -52,11 +52,13 @@ export default function JournalEntries() {
     limit: 10
   });
 
+  const { current: currentPage, limit: pageLimit } = pagination;
+
   const fetchJournalEntries = useCallback(async () => {
     try {
       const params = new URLSearchParams({
-        page: pagination.current.toString(),
-        limit: pagination.limit.toString(),
+        page: currentPage.toString(),
+        limit: pageLimit.toString(),
         ...(searchTerm && { search: searchTerm }),
         ...(statusFilter && { status: statusFilter })
       });
@@ -72,7 +74,7 @@ export default function JournalEntries() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.current, pagination.limit, searchTerm, statusFilter]);
+  }, [currentPage, pageLimit, searchTerm, statusFilter]);
 
   const fetchAccounts = async () => {
     try {
@@ -211,6 +213,12 @@ export default function JournalEntries() {
                 className="text-sm text-gray-600 hover:text-gray-900"
               >
                 Home
+              </button>
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="text-sm text-red-600 hover:text-red-900 font-medium"
+              >
+                Logout
               </button>
             </div>
           </div>
@@ -447,7 +455,7 @@ function JournalEntryModal({
     }
   };
 
-  const updateEntryLine = (index: number, field: string, value: any) => {
+  const updateEntryLine = (index: number, field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       entries: prev.entries.map((line, i) => 

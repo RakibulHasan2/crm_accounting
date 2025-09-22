@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -107,6 +107,12 @@ export default function AccountantDashboard() {
               <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
                 Home
               </Link>
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="text-sm text-red-600 hover:text-red-900 font-medium"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
