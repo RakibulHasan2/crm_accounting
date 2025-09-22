@@ -42,7 +42,8 @@ export async function POST(request: Request) {
       email,
       password: hashedPassword,
       role,
-      status: UserStatus.PENDING
+      // For development: Accountants are active by default, others pending
+      status: role === UserRole.ACCOUNTANT ? UserStatus.ACTIVE : UserStatus.PENDING
     });
     
     await user.save();

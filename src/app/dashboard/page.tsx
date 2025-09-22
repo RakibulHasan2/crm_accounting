@@ -22,6 +22,18 @@ export default function Dashboard() {
       router.push('/admin');
       return;
     }
+
+    // Redirect accountants to accountant dashboard
+    if (session.user.role === 'accountant') {
+      router.push('/accountant');
+      return;
+    }
+
+    // Redirect accountant users to accountant dashboard
+    if (session.user.role === 'accountant') {
+      router.push('/accountant');
+      return;
+    }
   }, [session, status, router]);
 
   if (status === 'loading') {
