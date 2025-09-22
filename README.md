@@ -153,30 +153,100 @@ npm run lint         # Run ESLint
 
 ## 🔐 User Roles & Permissions
 
-| Role | Permissions |
-|------|-------------|
-| **Admin** | Full system access, user management, system configuration |
-| **Accountant** | Manage chart of accounts, journal entries, financial reports |
-| **Sales** | Manage leads, opportunities, contacts, pipeline |
+> **📋 For detailed role responsibilities and permissions, see [ROLES_AND_RESPONSIBILITIES.md](./ROLES_AND_RESPONSIBILITIES.md)**
+
+### **Current Implementation Status** ✅
+
+| Role | Status | Primary Function | Key Modules |
+|------|--------|------------------|-------------|
+| **🔴 Admin** | ✅ **Active** | System administration & oversight | User management, system config, all modules |
+| **🟢 Accountant** | ✅ **Active** | Financial management & reporting | Chart of accounts, journal entries, financial reports |
+| **🟠 Sales** | 🚧 **Planned** | Lead & customer management | CRM, contacts, opportunities, pipeline |
+| **🔵 Manager** | ⚠️ **Partial** | Strategic oversight & analytics | Reports, dashboards, performance monitoring |
+| **🟣 Auditor** | ⚠️ **Partial** | Compliance & verification | Read-only access, audit trails, compliance reports |
+
+### **Implemented Features by Role:**
+
+#### **✅ Admin (Fully Implemented)**
+- Complete user management system
+- System configuration and settings
+- Full access to all accounting modules
+- Admin dashboard with analytics
+- User activity monitoring
+
+#### **✅ Accountant (Fully Implemented)**
+- Chart of Accounts management
+- Journal Entries with double-entry validation
+- General Ledger with running balances
+- Trial Balance verification
+- Financial Reports (P&L, Balance Sheet)
+- Accountant-specific dashboard
+
+#### **🚧 Sales (Planned for Next Phase)**
+- Contact and company management
+- Lead qualification and tracking
+- Sales pipeline management
+- Opportunity management
+- Activity logging and follow-up
+
+#### **⚠️ Manager (Partially Implemented)**
+- View access to financial reports
+- Dashboard analytics (limited)
+- Performance monitoring (basic)
+
+#### **⚠️ Auditor (Partially Implemented)**
+- Read-only access to financial data
+- Basic audit trail access
+- Compliance reporting (limited)
 | **Manager** | View dashboards, approve invoices, review reports |
 | **Auditor** | Read-only access to financial records and CRM history |
 
 ## 🌐 API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/[...nextauth]` - NextAuth.js authentication
+### **✅ Implemented & Active**
 
-### System
-- `GET /api/health` - Health check and database status
+#### Authentication
+- `POST /api/auth/register` - User registration with role-based activation
+- `POST /api/auth/[...nextauth]` - NextAuth.js authentication system
 
-### Upcoming Endpoints
-- `GET /api/users` - List users (Admin only)
-- `GET /api/accounts/chart` - Chart of accounts
-- `POST /api/accounts/journal` - Create journal entry
-- `GET /api/reports/ledger` - Ledger report
-- `GET/POST /api/contacts` - Contact management
-- `GET/POST /api/opportunities` - Opportunity management
+#### System Health
+- `GET /api/health` - Health check and database connectivity status
+
+#### Accounting Module
+- `GET /api/accounting/chart-of-accounts` - Retrieve chart of accounts
+- `POST /api/accounting/chart-of-accounts` - Create new account
+- `PUT /api/accounting/chart-of-accounts/[id]` - Update account
+- `DELETE /api/accounting/chart-of-accounts/[id]` - Delete account
+
+- `GET /api/accounting/journal-entries` - List journal entries with pagination
+- `POST /api/accounting/journal-entries` - Create new journal entry
+- `GET /api/accounting/journal-entries/[id]` - Get specific journal entry
+- `PUT /api/accounting/journal-entries/[id]` - Update journal entry
+- `DELETE /api/accounting/journal-entries/[id]` - Delete journal entry
+- `POST /api/accounting/journal-entries/[id]/post` - Post journal entry
+
+- `GET /api/accounting/ledger` - General ledger with account filtering
+- `GET /api/accounting/trial-balance` - Trial balance report
+- `GET /api/accounting/financial-reports` - P&L and Balance Sheet reports
+- `GET /api/accounting/dashboard` - Accountant dashboard statistics
+
+#### Admin Module
+- `GET /api/admin/dashboard` - Admin dashboard with system stats
+- `GET /api/admin/users` - User management (list, create, update)
+- `GET /api/admin/settings` - System configuration
+
+### **🚧 Planned for Future Releases**
+
+#### CRM Module (Coming Soon)
+- `GET/POST /api/crm/contacts` - Contact management
+- `GET/POST /api/crm/companies` - Company management  
+- `GET/POST /api/crm/opportunities` - Opportunity tracking
+- `GET/POST /api/crm/activities` - Activity logging
+
+#### Advanced Features (Roadmap)
+- `GET /api/reports/advanced` - Advanced analytics
+- `POST /api/data/import` - Data import functionality
+- `GET /api/audit/trail` - Comprehensive audit logging
 
 ## 🔒 Security Features
 
@@ -209,28 +279,52 @@ npm run lint         # Run ESLint
 }
 ```
 
-## 🔍 Current Status
+## 🔍 Current Implementation Status
 
-### ✅ Completed
-- Next.js 15.5.3 setup with TypeScript
-- MongoDB connection with Mongoose
-- User authentication with NextAuth.js
-- RBAC system with 5 user roles
-- User registration API
-- Health check endpoint
-- Environment configuration
-- Custom Tailwind design system
+### ✅ **Fully Completed & Production Ready**
+- **🏗️ Core Infrastructure**
+  - Next.js 15.5.3 with TypeScript and App Router
+  - MongoDB with Mongoose ODM
+  - NextAuth.js authentication with JWT sessions
+  - Complete RBAC system with 5 user roles
+  - TailwindCSS design system with responsive UI
 
-### 🚧 In Progress
-- Authentication frontend pages
-- Database models for accounting and CRM
+- **👥 User Management System**
+  - User registration with role-based auto-activation
+  - Secure authentication with bcrypt password hashing
+  - Role-based access control throughout application
+  - User status management (active/pending/inactive)
 
-### 📋 Next Steps
-1. Create login/register UI components
-2. Implement Chart of Accounts model
-3. Build accounting dashboard
-4. Add contact management system
+- **📊 Complete Accounting System**
+  - Chart of Accounts with hierarchical structure
+  - Journal Entries with double-entry validation
+  - General Ledger with running balances
+  - Trial Balance with real-time verification
+  - Financial Reports (P&L, Balance Sheet)
+  - Professional accountant dashboard
+
+- **🔐 Admin Panel**
+  - Complete user management interface
+  - System configuration and settings
+  - Admin-specific dashboard with analytics
+  - User activity monitoring
+
+- **📈 Reports System**
+  - Role-based report access
+  - Financial report generation
+  - Professional report formatting
+  - Export capabilities
+
+### � **Planned for Next Phase**
+- **CRM Module**: Contact management, lead tracking, sales pipeline
+- **Sales Module**: Opportunity management, revenue forecasting
+- **Enhanced Auditing**: Comprehensive audit trails and compliance reports
+- **Advanced Analytics**: Business intelligence dashboards
+
+### 🎯 **Ready for Production Use**
+The accounting system is **fully functional** and ready for real-world use by software development firms and small-to-medium businesses. All core accounting features are implemented with proper validation, security, and role-based access control.
 
 ---
 
-**Built with ❤️ by Hotchpotch Digital Ltd**
+**Built with ❤️ by Hotchpotch Digital Ltd**  
+*Comprehensive business management solution for the modern enterprise*
