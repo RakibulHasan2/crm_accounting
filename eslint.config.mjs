@@ -24,7 +24,7 @@ const eslintConfig = [
     rules: {
       // Disable TypeScript ESLint rules that cause build failures
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "warn", // Changed from error to warning
+      "@typescript-eslint/no-unused-vars": "warn", 
     },
   },
 ];
