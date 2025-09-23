@@ -19,15 +19,25 @@ export async function GET(
 
     const { id } = await params;
     const account = await ChartOfAccounts.findById(id)
-      .populate('parentAccount', 'accountName accountCode');
+      .populate('parentId', 'name code');
 
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    // Map model fields to frontend expected fields for backward compatibility
+    const responseAccount = {
+      ...account.toObject(),
+      accountCode: account.code,
+      accountName: account.name,
+      accountType: account.type,
+      accountSubType: account.subType,
+      parentAccount: account.parentId
+    };
+
     return NextResponse.json({
       success: true,
-      account
+      account: responseAccount
     });
 
   } catch (error) {
@@ -57,7 +67,8 @@ export async function PUT(
     const { 
       accountCode, 
       accountName, 
-      accountType, 
+      accountType,
+      accountSubType, 
       parentAccount, 
       description, 
       isActive 
@@ -69,9 +80,9 @@ export async function PUT(
     }
 
     // Check if account code already exists (excluding current account)
-    if (accountCode && accountCode !== account.accountCode) {
+    if (accountCode && accountCode !== account.code) {
       const existingAccount = await ChartOfAccounts.findOne({ 
-        accountCode, 
+        code: accountCode, 
         _id: { $ne: id } 
       });
       if (existingAccount) {
@@ -83,7 +94,7 @@ export async function PUT(
     }
 
     // Validate parent account if provided
-    if (parentAccount && parentAccount !== account.parentAccount?.toString()) {
+    if (parentAccount && parentAccount !== account.parentId?.toString()) {
       const parent = await ChartOfAccounts.findById(parentAccount);
       if (!parent) {
         return NextResponse.json(
@@ -93,7 +104,7 @@ export async function PUT(
       }
       
       // Ensure parent is the same account type
-      if (parent.accountType !== (accountType || account.accountType)) {
+      if (parent.type !== (accountType || account.type)) {
         return NextResponse.json(
           { error: 'Parent account must be of the same type' },
           { status: 400 }
@@ -109,25 +120,45 @@ export async function PUT(
       }
     }
 
+    // Calculate level based on parent
+    let level = 0;
+    if (parentAccount) {
+      const parent = await ChartOfAccounts.findById(parentAccount);
+      if (parent) {
+        level = parent.level + 1;
+      }
+    }
+
     // Update account
     const updatedAccount = await ChartOfAccounts.findByIdAndUpdate(
       id,
       {
-        ...(accountCode && { accountCode }),
-        ...(accountName && { accountName }),
-        ...(accountType && { accountType }),
-        ...(parentAccount !== undefined && { parentAccount: parentAccount || null }),
+        ...(accountCode && { code: accountCode }),
+        ...(accountName && { name: accountName }),
+        ...(accountType && { type: accountType }),
+        ...(accountSubType && { subType: accountSubType }),
+        ...(parentAccount !== undefined && { parentId: parentAccount || null }),
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive }),
-        updatedBy: session.user.id,
-        updatedAt: new Date()
+        level,
+        updatedBy: session.user.id
       },
       { new: true }
-    ).populate('parentAccount', 'accountName accountCode');
+    ).populate('parentId', 'name code');
+
+    // Map model fields to frontend expected fields for backward compatibility
+    const responseAccount = {
+      ...updatedAccount.toObject(),
+      accountCode: updatedAccount.code,
+      accountName: updatedAccount.name,
+      accountType: updatedAccount.type,
+      accountSubType: updatedAccount.subType,
+      parentAccount: updatedAccount.parentId
+    };
 
     return NextResponse.json({
       success: true,
-      account: updatedAccount,
+      account: responseAccount,
       message: 'Account updated successfully'
     });
 
@@ -161,7 +192,7 @@ export async function DELETE(
     }
 
     // Check if account has child accounts
-    const childAccounts = await ChartOfAccounts.countDocuments({ parentAccount: id });
+    const childAccounts = await ChartOfAccounts.countDocuments({ parentId: id });
     if (childAccounts > 0) {
       return NextResponse.json(
         { error: 'Cannot delete account with child accounts' },
@@ -175,8 +206,7 @@ export async function DELETE(
     // For now, just mark as inactive instead of deleting
     await ChartOfAccounts.findByIdAndUpdate(id, { 
       isActive: false,
-      updatedBy: session.user.id,
-      updatedAt: new Date()
+      updatedBy: session.user.id
     });
 
     return NextResponse.json({

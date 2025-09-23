@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth/config';
 import dbConnect from '@/lib/dbConnect';
-import JournalEntry from '@/models/JournalEntry';
+import JournalEntry, { IJournalEntryLine } from '@/models/JournalEntry';
 import ChartOfAccounts from '@/models/ChartOfAccounts';
 
 export async function GET(
@@ -20,16 +20,30 @@ export async function GET(
 
     const { id } = await params;
     const journalEntry = await JournalEntry.findById(id)
-      .populate('entries.account', 'accountCode accountName')
       .populate('createdBy', 'name');
 
     if (!journalEntry) {
       return NextResponse.json({ error: 'Journal entry not found' }, { status: 404 });
     }
 
+    // Map model fields to frontend expected fields
+    const formattedEntry = {
+      ...journalEntry.toObject(),
+      description: journalEntry.narration, // Map narration to description
+      entryDate: journalEntry.date, // Map date to entryDate
+      entries: journalEntry.lines.map((line: IJournalEntryLine) => ({ // Map lines to entries
+        account: line.accountId,
+        accountCode: line.accountCode,
+        accountName: line.accountName,
+        description: line.description,
+        debit: parseFloat(line.debitAmount) || null,
+        credit: parseFloat(line.creditAmount) || null
+      }))
+    };
+
     return NextResponse.json({
       success: true,
-      journalEntry
+      journalEntry: formattedEntry
     });
 
   } catch (error) {
@@ -110,27 +124,53 @@ export async function PUT(
         );
       }
 
-      // Update journal entry
-      journalEntry.entries = entries;
-      journalEntry.totalDebit = totalDebit;
-      journalEntry.totalCredit = totalCredit;
+      // Transform entries to lines format for the model
+      const lines = await Promise.all(entries.map(async (entry: any) => {
+        const account = await ChartOfAccounts.findById(entry.account);
+        return {
+          accountId: entry.account,
+          accountCode: account.code,
+          accountName: account.name,
+          description: entry.description || '',
+          debitAmount: (entry.debit || 0).toString(),
+          creditAmount: (entry.credit || 0).toString()
+        };
+      }));
+
+      // Update journal entry with model fields
+      journalEntry.lines = lines;
+      journalEntry.totalDebit = totalDebit.toString();
+      journalEntry.totalCredit = totalCredit.toString();
     }
 
-    if (description) journalEntry.description = description;
-    if (entryDate) journalEntry.entryDate = new Date(entryDate);
+    if (description) journalEntry.narration = description; // Map description to narration
+    if (entryDate) journalEntry.date = new Date(entryDate); // Map entryDate to date
     
     journalEntry.updatedBy = session.user.id;
-    journalEntry.updatedAt = new Date();
 
     await journalEntry.save();
 
     const populatedEntry = await JournalEntry.findById(id)
-      .populate('entries.account', 'accountCode accountName')
       .populate('createdBy', 'name');
+
+    // Format response for frontend
+    const formattedEntry = {
+      ...populatedEntry.toObject(),
+      description: populatedEntry.narration,
+      entryDate: populatedEntry.date,
+      entries: populatedEntry.lines.map((line: IJournalEntryLine) => ({
+        account: line.accountId,
+        accountCode: line.accountCode,
+        accountName: line.accountName,
+        description: line.description,
+        debit: parseFloat(line.debitAmount) || null,
+        credit: parseFloat(line.creditAmount) || null
+      }))
+    };
 
     return NextResponse.json({
       success: true,
-      journalEntry: populatedEntry,
+      journalEntry: formattedEntry,
       message: 'Journal entry updated successfully'
     });
 

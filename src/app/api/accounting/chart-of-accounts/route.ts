@@ -18,31 +18,34 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const type = searchParams.get('type');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const query: any = {};
 
     if (search) {
       query.$or = [
-        { accountName: { $regex: search, $options: 'i' } },
-        { accountCode: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { code: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
     }
 
     if (type) {
-      query.accountType = type;
+      query.type = type;
     }
 
     const accounts = await ChartOfAccounts.find(query)
-      .populate('parentAccount', 'accountName accountCode')
-      .sort({ accountCode: 1 });
+      .populate('parentId', 'name code')
+      .sort({ code: 1 });
 
     // Calculate account levels for hierarchy display
     const accountsWithLevels = accounts.map(account => {
-      const level = account.parentAccount ? 1 : 0; // Simple 2-level hierarchy for now
       return {
         ...account.toObject(),
-        level
+        // Map model fields to frontend expected fields for backward compatibility
+        accountCode: account.code,
+        accountName: account.name,
+        accountType: account.type,
+        accountSubType: account.subType,
+        parentAccount: account.parentId
       };
     });
 
@@ -75,21 +78,22 @@ export async function POST(request: NextRequest) {
       accountCode, 
       accountName, 
       accountType, 
+      accountSubType,
       parentAccount, 
       description, 
       isActive = true 
     } = body;
 
     // Validate required fields
-    if (!accountCode || !accountName || !accountType) {
+    if (!accountCode || !accountName || !accountType || !accountSubType) {
       return NextResponse.json(
-        { error: 'Account code, name, and type are required' },
+        { error: 'Account code, name, type, and sub-type are required' },
         { status: 400 }
       );
     }
 
     // Check if account code already exists
-    const existingAccount = await ChartOfAccounts.findOne({ accountCode });
+    const existingAccount = await ChartOfAccounts.findOne({ code: accountCode });
     if (existingAccount) {
       return NextResponse.json(
         { error: 'Account code already exists' },
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Ensure parent is the same account type
-      if (parent.accountType !== accountType) {
+      if (parent.type !== accountType) {
         return NextResponse.json(
           { error: 'Parent account must be of the same type' },
           { status: 400 }
@@ -116,25 +120,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Calculate level based on parent
+    let level = 0;
+    if (parentAccount) {
+      const parent = await ChartOfAccounts.findById(parentAccount);
+      if (parent) {
+        level = parent.level + 1;
+      }
+    }
+
     const newAccount = new ChartOfAccounts({
-      accountCode,
-      accountName,
-      accountType,
-      parentAccount: parentAccount || null,
+      code: accountCode,
+      name: accountName,
+      type: accountType,
+      subType: accountSubType,
+      parentId: parentAccount || null,
+      level,
       description,
       isActive,
-      balance: 0,
+      balance: '0.00',
+      openingBalance: '0.00',
+      currency: 'USD',
       createdBy: session.user.id
     });
 
     await newAccount.save();
 
     const populatedAccount = await ChartOfAccounts.findById(newAccount._id)
-      .populate('parentAccount', 'accountName accountCode');
+      .populate('parentId', 'name code');
+
+    // Map model fields to frontend expected fields for backward compatibility
+    const responseAccount = {
+      ...populatedAccount.toObject(),
+      accountCode: populatedAccount.code,
+      accountName: populatedAccount.name,
+      accountType: populatedAccount.type,
+      accountSubType: populatedAccount.subType,
+      parentAccount: populatedAccount.parentId
+    };
 
     return NextResponse.json({
       success: true,
-      account: populatedAccount,
+      account: responseAccount,
       message: 'Account created successfully'
     }, { status: 201 });
 

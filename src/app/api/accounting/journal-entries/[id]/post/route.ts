@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth/config';
 import dbConnect from '@/lib/dbConnect';
-import JournalEntry from '@/models/JournalEntry';
+import JournalEntry, { IJournalEntryLine } from '@/models/JournalEntry';
 import ChartOfAccounts from '@/models/ChartOfAccounts';
 import mongoose from 'mongoose';
 
@@ -34,7 +34,9 @@ export async function POST(
     }
 
     // Validate that debits equal credits
-    if (Math.abs(journalEntry.totalDebit - journalEntry.totalCredit) >= 0.01) {
+    const totalDebit = parseFloat(journalEntry.totalDebit);
+    const totalCredit = parseFloat(journalEntry.totalCredit);
+    if (Math.abs(totalDebit - totalCredit) >= 0.01) {
       return NextResponse.json(
         { error: 'Journal entry is not balanced' },
         { status: 400 }
@@ -47,34 +49,39 @@ export async function POST(
 
     try {
       // Update account balances
-      for (const entry of journalEntry.entries) {
-        const account = await ChartOfAccounts.findById(entry.account).session(session_db);
+      for (const line of journalEntry.lines) {
+        const account = await ChartOfAccounts.findById(line.accountId).session(session_db);
         if (!account) {
-          throw new Error(`Account ${entry.account} not found`);
+          throw new Error(`Account ${line.accountId} not found`);
         }
+
+        const debitAmount = parseFloat(line.debitAmount);
+        const creditAmount = parseFloat(line.creditAmount);
 
         // Calculate balance change based on account type and normal balance
         let balanceChange = 0;
         
-        if (entry.debit > 0) {
+        if (debitAmount > 0) {
           // Debit increases: Assets, Expenses
-          // Debit decreases: Liabilities, Equity, Revenue
-          if (['assets', 'expenses'].includes(account.accountType)) {
-            balanceChange = entry.debit;
+          // Debit decreases: Liabilities, Equity, Income
+          if (['asset', 'expense'].includes(account.type)) {
+            balanceChange = debitAmount;
           } else {
-            balanceChange = -entry.debit;
+            balanceChange = -debitAmount;
           }
-        } else if (entry.credit > 0) {
-          // Credit increases: Liabilities, Equity, Revenue
+        } else if (creditAmount > 0) {
+          // Credit increases: Liabilities, Equity, Income
           // Credit decreases: Assets, Expenses
-          if (['liabilities', 'equity', 'revenue'].includes(account.accountType)) {
-            balanceChange = entry.credit;
+          if (['liability', 'equity', 'income'].includes(account.type)) {
+            balanceChange = creditAmount;
           } else {
-            balanceChange = -entry.credit;
+            balanceChange = -creditAmount;
           }
         }
 
-        account.balance += balanceChange;
+        const currentBalance = parseFloat(account.balance);
+        const newBalance = currentBalance + balanceChange;
+        account.balance = newBalance.toString();
         await account.save({ session: session_db });
       }
 
@@ -87,13 +94,27 @@ export async function POST(
       await session_db.commitTransaction();
 
       const populatedEntry = await JournalEntry.findById(id)
-        .populate('entries.account', 'accountCode accountName')
         .populate('createdBy', 'name')
         .populate('postedBy', 'name');
 
+      // Format response for frontend
+      const formattedEntry = {
+        ...populatedEntry.toObject(),
+        description: populatedEntry.narration,
+        entryDate: populatedEntry.date,
+        entries: populatedEntry.lines.map((line: IJournalEntryLine) => ({
+          account: line.accountId,
+          accountCode: line.accountCode,
+          accountName: line.accountName,
+          description: line.description,
+          debit: parseFloat(line.debitAmount) || null,
+          credit: parseFloat(line.creditAmount) || null
+        }))
+      };
+
       return NextResponse.json({
         success: true,
-        journalEntry: populatedEntry,
+        journalEntry: formattedEntry,
         message: 'Journal entry posted successfully'
       });
 

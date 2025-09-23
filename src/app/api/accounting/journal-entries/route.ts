@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth/config';
 import dbConnect from '@/lib/dbConnect';
-import JournalEntry from '@/models/JournalEntry';
+import JournalEntry, { IJournalEntryLine } from '@/models/JournalEntry';
 import ChartOfAccounts from '@/models/ChartOfAccounts';
 
 export async function GET(request: NextRequest) {
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       query.$or = [
         { journalNumber: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { narration: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -38,7 +38,6 @@ export async function GET(request: NextRequest) {
 
     const [journalEntries, total] = await Promise.all([
       JournalEntry.find(query)
-        .populate('entries.account', 'accountCode accountName')
         .populate('createdBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -48,9 +47,24 @@ export async function GET(request: NextRequest) {
 
     const pages = Math.ceil(total / limit);
 
+    // Map model fields to frontend expected fields
+    const formattedEntries = journalEntries.map(entry => ({
+      ...entry.toObject(),
+      description: entry.narration, // Map narration to description
+      entryDate: entry.date, // Map date to entryDate
+      entries: entry.lines.map((line: IJournalEntryLine) => ({ // Map lines to entries
+        account: line.accountId,
+        accountCode: line.accountCode,
+        accountName: line.accountName,
+        description: line.description,
+        debit: parseFloat(line.debitAmount) || null,
+        credit: parseFloat(line.creditAmount) || null
+      }))
+    }));
+
     return NextResponse.json({
       success: true,
-      journalEntries,
+      journalEntries: formattedEntries,
       pagination: {
         current: page,
         pages,
@@ -127,13 +141,26 @@ export async function POST(request: NextRequest) {
       : 1;
     const journalNumber = `JE${nextNumber.toString().padStart(6, '0')}`;
 
+    // Map frontend fields to model fields and transform entries to lines
+    const lines = await Promise.all(entries.map(async (entry: any) => {
+      const account = await ChartOfAccounts.findById(entry.account);
+      return {
+        accountId: entry.account,
+        accountCode: account.code,
+        accountName: account.name,
+        description: entry.description || '',
+        debitAmount: (entry.debit || 0).toString(),
+        creditAmount: (entry.credit || 0).toString()
+      };
+    }));
+
     const newJournalEntry = new JournalEntry({
       journalNumber,
-      description,
-      entryDate: new Date(entryDate),
-      entries,
-      totalDebit,
-      totalCredit,
+      narration: description, // Map description to narration
+      date: new Date(entryDate), // Map entryDate to date
+      lines, // Map entries to lines
+      totalDebit: totalDebit.toString(),
+      totalCredit: totalCredit.toString(),
       status: 'draft',
       createdBy: session.user.id
     });
@@ -141,7 +168,6 @@ export async function POST(request: NextRequest) {
     await newJournalEntry.save();
 
     const populatedEntry = await JournalEntry.findById(newJournalEntry._id)
-      .populate('entries.account', 'accountCode accountName')
       .populate('createdBy', 'name');
 
     return NextResponse.json({

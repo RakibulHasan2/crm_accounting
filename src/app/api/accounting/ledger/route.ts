@@ -26,7 +26,11 @@ interface QueryFilter {
     $regex: string;
     $options: string;
   };
-  $or: Array<{ 'entries.account': string }>;
+  narration?: {
+    $regex: string;
+    $options: string;
+  };
+  $or: Array<{ 'lines.accountId': string }>;
 }
 
 export async function GET(request: NextRequest) {
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
     const query: Partial<QueryFilter> = {
       status: 'posted',
       $or: [
-        { 'entries.account': accountId },
+        { 'lines.accountId': accountId },
       ]
     };
 
@@ -76,13 +80,12 @@ export async function GET(request: NextRequest) {
 
     // Add search filter
     if (search) {
-      query.description = { $regex: search, $options: 'i' };
+      query.narration = { $regex: search, $options: 'i' };
     }
 
     // Fetch journal entries
     const journalEntries = await JournalEntry.find(query)
-      .sort({ date: 1, journalNumber: 1 })
-      .populate('entries.account', 'accountCode accountName accountType');
+      .sort({ date: 1, journalNumber: 1 });
 
     // Process entries to create ledger view
     const ledgerEntries: LedgerEntry[] = [];
@@ -93,18 +96,21 @@ export async function GET(request: NextRequest) {
       const openingQuery = {
         status: 'posted',
         date: { $lt: new Date(dateFrom) },
-        $or: [{ 'entries.account': accountId }]
+        $or: [{ 'lines.accountId': accountId }]
       };
 
       const openingEntries = await JournalEntry.find(openingQuery);
       
       for (const entry of openingEntries) {
-        for (const entryLine of entry.entries) {
-          if (entryLine.account.toString() === accountId) {
-            if (['Asset', 'Expense'].includes(account.accountType)) {
-              runningBalance += entryLine.debit - entryLine.credit;
+        for (const entryLine of entry.lines) {
+          if (entryLine.accountId === accountId) {
+            const debitAmount = parseFloat(entryLine.debitAmount);
+            const creditAmount = parseFloat(entryLine.creditAmount);
+            
+            if (['asset', 'expense'].includes(account.type)) {
+              runningBalance += debitAmount - creditAmount;
             } else {
-              runningBalance += entryLine.credit - entryLine.debit;
+              runningBalance += creditAmount - debitAmount;
             }
           }
         }
@@ -113,31 +119,25 @@ export async function GET(request: NextRequest) {
 
     // Process filtered entries
     for (const entry of journalEntries) {
-      for (const entryLine of entry.entries) {
-        if (entryLine.account._id.toString() === accountId) {
-          let debit = 0;
-          let credit = 0;
-
-          if (entryLine.debit > 0) {
-            debit = entryLine.debit;
-          } else {
-            credit = entryLine.credit;
-          }
+      for (const entryLine of entry.lines) {
+        if (entryLine.accountId === accountId) {
+          const debitAmount = parseFloat(entryLine.debitAmount);
+          const creditAmount = parseFloat(entryLine.creditAmount);
 
           // Calculate running balance based on account type
-          if (['Asset', 'Expense'].includes(account.accountType)) {
-            runningBalance += debit - credit;
+          if (['asset', 'expense'].includes(account.type)) {
+            runningBalance += debitAmount - creditAmount;
           } else {
-            runningBalance += credit - debit;
+            runningBalance += creditAmount - debitAmount;
           }
 
           ledgerEntries.push({
             date: entry.date,
             journalNumber: entry.journalNumber,
-            description: entry.description,
+            description: entry.narration,
             reference: entry.reference,
-            debit,
-            credit,
+            debit: debitAmount,
+            credit: creditAmount,
             balance: runningBalance
           });
         }
@@ -149,9 +149,9 @@ export async function GET(request: NextRequest) {
       entries: ledgerEntries,
       account: {
         id: account._id,
-        code: account.accountCode,
-        name: account.accountName,
-        type: account.accountType,
+        code: account.code,
+        name: account.name,
+        type: account.type,
         currentBalance: runningBalance
       }
     });

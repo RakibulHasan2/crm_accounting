@@ -8,7 +8,8 @@ interface Account {
   _id: string;
   accountCode: string;
   accountName: string;
-  accountType: 'assets' | 'liabilities' | 'equity' | 'revenue' | 'expenses';
+  accountType: 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+  accountSubType: string;
   parentAccount?: string;
   level: number;
   isActive: boolean;
@@ -59,6 +60,7 @@ export default function ChartOfAccounts() {
   }, [session, status, router, fetchAccounts]);
 
   const handleCreateAccount = async (accountData: Partial<Account>) => {
+    console.log(accountData)
     try {
       const response = await fetch('/api/accounting/chart-of-accounts', {
         method: 'POST',
@@ -186,11 +188,11 @@ export default function ChartOfAccounts() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Account Types</option>
-                <option value="assets">Assets</option>
-                <option value="liabilities">Liabilities</option>
+                <option value="asset">Assets</option>
+                <option value="liability">Liabilities</option>
                 <option value="equity">Equity</option>
-                <option value="revenue">Revenue</option>
-                <option value="expenses">Expenses</option>
+                <option value="income">Income</option>
+                <option value="expense">Expenses</option>
               </select>
             </div>
             <div>
@@ -340,7 +342,8 @@ function AccountModal({
   const [formData, setFormData] = useState({
     accountCode: account?.accountCode || '',
     accountName: account?.accountName || '',
-    accountType: account?.accountType || 'assets',
+    accountType: account?.accountType || 'asset',
+    accountSubType: account?.accountSubType || '',
     parentAccount: account?.parentAccount || '',
     description: account?.description || '',
     isActive: account?.isActive ?? true
@@ -387,14 +390,59 @@ function AccountModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
               <select
                 value={formData.accountType}
-                onChange={(e) => setFormData({ ...formData, accountType: e.target.value as Account['accountType'] })}
+                onChange={(e) => setFormData({ ...formData, accountType: e.target.value as Account['accountType'], accountSubType: '' })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="assets">Assets</option>
-                <option value="liabilities">Liabilities</option>
+                <option value="asset">Asset</option>
+                <option value="liability">Liability</option>
                 <option value="equity">Equity</option>
-                <option value="revenue">Revenue</option>
-                <option value="expenses">Expenses</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Account Sub-Type</label>
+              <select
+                value={formData.accountSubType}
+                onChange={(e) => setFormData({ ...formData, accountSubType: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="">Select Sub-Type</option>
+                {formData.accountType === 'asset' && (
+                  <>
+                    <option value="current_asset">Current Asset</option>
+                    <option value="fixed_asset">Fixed Asset</option>
+                    <option value="other_asset">Other Asset</option>
+                  </>
+                )}
+                {formData.accountType === 'liability' && (
+                  <>
+                    <option value="current_liability">Current Liability</option>
+                    <option value="long_term_liability">Long-term Liability</option>
+                    <option value="other_liability">Other Liability</option>
+                  </>
+                )}
+                {formData.accountType === 'equity' && (
+                  <>
+                    <option value="owner_equity">Owner&apos;s Equity</option>
+                    <option value="retained_earnings">Retained Earnings</option>
+                  </>
+                )}
+                {formData.accountType === 'income' && (
+                  <>
+                    <option value="revenue">Revenue</option>
+                    <option value="other_income">Other Income</option>
+                  </>
+                )}
+                {formData.accountType === 'expense' && (
+                  <>
+                    <option value="cost_of_goods_sold">Cost of Goods Sold</option>
+                    <option value="operating_expense">Operating Expense</option>
+                    <option value="other_expense">Other Expense</option>
+                  </>
+                )}
               </select>
             </div>
 

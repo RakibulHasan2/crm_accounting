@@ -47,11 +47,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch all journal entries up to the specified date
     const journalEntries = await JournalEntry.find(query)
-      .populate('entries.account', 'accountCode accountName accountType')
       .sort({ date: 1, journalNumber: 1 });
 
     // Fetch all accounts
-    const accountsQuery = accountType ? { accountType } : {};
+    const accountsQuery = accountType ? { type: accountType } : {};
     const accounts = await ChartOfAccounts.find(accountsQuery);
 
     // Calculate balances for each account
@@ -61,9 +60,9 @@ export async function GET(request: NextRequest) {
     for (const account of accounts) {
       accountBalances[account._id.toString()] = {
         account: {
-          accountCode: account.accountCode,
-          accountName: account.accountName,
-          accountType: account.accountType
+          accountCode: account.code,
+          accountName: account.name,
+          accountType: account.type
         },
         debitTotal: 0,
         creditTotal: 0
@@ -72,12 +71,12 @@ export async function GET(request: NextRequest) {
 
     // Process journal entries to calculate balances
     for (const entry of journalEntries) {
-      for (const entryLine of entry.entries) {
-        const accountId = entryLine.account._id.toString();
+      for (const entryLine of entry.lines) {
+        const accountId = entryLine.accountId;
         
         if (accountBalances[accountId]) {
-          accountBalances[accountId].debitTotal += entryLine.debit;
-          accountBalances[accountId].creditTotal += entryLine.credit;
+          accountBalances[accountId].debitTotal += parseFloat(entryLine.debitAmount);
+          accountBalances[accountId].creditTotal += parseFloat(entryLine.creditAmount);
         }
       }
     }
@@ -95,7 +94,7 @@ export async function GET(request: NextRequest) {
       let creditBalance = 0;
 
       // Determine natural balance side based on account type
-      if (['Asset', 'Expense'].includes(account.accountType)) {
+      if (['asset', 'expense'].includes(account.accountType)) {
         // Assets and Expenses have debit normal balance
         if (netBalance > 0) {
           debitBalance = netBalance;
@@ -103,7 +102,7 @@ export async function GET(request: NextRequest) {
           creditBalance = Math.abs(netBalance);
         }
       } else {
-        // Liabilities, Equity, and Revenue have credit normal balance
+        // Liabilities, Equity, and Income have credit normal balance
         if (netBalance < 0) {
           creditBalance = Math.abs(netBalance);
         } else if (netBalance > 0) {

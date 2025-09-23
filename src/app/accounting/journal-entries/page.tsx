@@ -18,8 +18,8 @@ interface JournalEntry {
   entryDate: string;
   status: 'draft' | 'posted' | 'reversed';
   entries: JournalEntryLine[];
-  totalDebit: number;
-  totalCredit: number;
+  totalDebit: number | string;
+  totalCredit: number | string;
   createdBy: string;
   createdAt: string;
   postedAt?: string;
@@ -29,10 +29,11 @@ interface JournalEntry {
 interface JournalEntryLine {
   _id?: string;
   account: string;
+  accountCode?: string;
   accountName?: string;
   description: string;
-  debit: number;
-  credit: number;
+  debit: number | null;
+  credit: number | null;
 }
 
 export default function JournalEntries() {
@@ -167,11 +168,12 @@ export default function JournalEntries() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(amount);
+    }).format(numAmount || 0);
   };
 
   const getStatusColor = (status: string) => {
@@ -434,15 +436,15 @@ function JournalEntryModal({
     description: entry?.description || '',
     entryDate: entry?.entryDate ? entry.entryDate.split('T')[0] : new Date().toISOString().split('T')[0],
     entries: entry?.entries || [
-      { account: '', description: '', debit: 0, credit: 0 },
-      { account: '', description: '', debit: 0, credit: 0 }
+      { account: '', description: '', debit: null, credit: null },
+      { account: '', description: '', debit: null, credit: null }
     ]
   });
 
   const addEntryLine = () => {
     setFormData(prev => ({
       ...prev,
-      entries: [...prev.entries, { account: '', description: '', debit: 0, credit: 0 }]
+      entries: [...prev.entries, { account: '', description: '', debit: null, credit: null }]
     }));
   };
 
@@ -455,7 +457,7 @@ function JournalEntryModal({
     }
   };
 
-  const updateEntryLine = (index: number, field: string, value: string | number) => {
+  const updateEntryLine = (index: number, field: string, value: string | number | null) => {
     setFormData(prev => ({
       ...prev,
       entries: prev.entries.map((line, i) => 
@@ -464,8 +466,16 @@ function JournalEntryModal({
     }));
   };
 
-  const totalDebit = formData.entries.reduce((sum, line) => sum + (parseFloat(line.debit.toString()) || 0), 0);
-  const totalCredit = formData.entries.reduce((sum, line) => sum + (parseFloat(line.credit.toString()) || 0), 0);
+  const totalDebit = formData.entries.reduce((sum, line) => {
+    const debitValue = line.debit ? parseFloat(line.debit.toString()) : 0;
+    return sum + (debitValue || 0);
+  }, 0);
+  
+  const totalCredit = formData.entries.reduce((sum, line) => {
+    const creditValue = line.credit ? parseFloat(line.credit.toString()) : 0;
+    return sum + (creditValue || 0);
+  }, 0);
+  
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -476,12 +486,22 @@ function JournalEntryModal({
       return;
     }
 
-    if (formData.entries.some(line => !line.account || (!line.debit && !line.credit))) {
+    if (formData.entries.some(line => !line.account || ((!line.debit || line.debit === 0) && (!line.credit || line.credit === 0)))) {
       alert('All lines must have an account and either a debit or credit amount');
       return;
     }
 
-    onSave(formData);
+    // Transform the data for API - convert null to 0 for debit/credit
+    const apiData = {
+      ...formData,
+      entries: formData.entries.map(line => ({
+        ...line,
+        debit: line.debit || 0,
+        credit: line.credit || 0
+      }))
+    };
+
+    onSave(apiData);
   };
 
   return (
@@ -573,11 +593,12 @@ function JournalEntryModal({
                             type="number"
                             step="0.01"
                             min="0"
-                            value={line.debit || ''}
+                            value={line.debit ? line.debit.toString() : ''}
                             onChange={(e) => {
-                              updateEntryLine(index, 'debit', parseFloat(e.target.value) || 0);
-                              if (parseFloat(e.target.value) > 0) {
-                                updateEntryLine(index, 'credit', 0);
+                              const value = e.target.value === '' ? null : parseFloat(e.target.value);
+                              updateEntryLine(index, 'debit', value);
+                              if (value && value > 0) {
+                                updateEntryLine(index, 'credit', null);
                               }
                             }}
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -588,11 +609,12 @@ function JournalEntryModal({
                             type="number"
                             step="0.01"
                             min="0"
-                            value={line.credit || ''}
+                            value={line.credit ? line.credit.toString() : ''}
                             onChange={(e) => {
-                              updateEntryLine(index, 'credit', parseFloat(e.target.value) || 0);
-                              if (parseFloat(e.target.value) > 0) {
-                                updateEntryLine(index, 'debit', 0);
+                              const value = e.target.value === '' ? null : parseFloat(e.target.value);
+                              updateEntryLine(index, 'credit', value);
+                              if (value && value > 0) {
+                                updateEntryLine(index, 'debit', null);
                               }
                             }}
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"

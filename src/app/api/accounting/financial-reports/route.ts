@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth/config';
 import dbConnect from '@/lib/dbConnect';
 import JournalEntry from '@/models/JournalEntry';
+import ChartOfAccounts from '@/models/ChartOfAccounts';
 
 interface AccountBalances {
   [accountName: string]: number;
@@ -51,7 +52,6 @@ export async function GET(request: NextRequest) {
 
     // Fetch journal entries
     const journalEntries = await JournalEntry.find(query)
-      .populate('entries.account', 'accountCode accountName accountType')
       .sort({ date: 1, journalNumber: 1 });
 
     // Initialize account balances
@@ -63,29 +63,34 @@ export async function GET(request: NextRequest) {
 
     // Process journal entries
     for (const entry of journalEntries) {
-      for (const entryLine of entry.entries) {
-        const account = entryLine.account;
-        const accountName = `${account.accountCode} - ${account.accountName}`;
-        const netAmount = entryLine.debit - entryLine.credit;
+      for (const entryLine of entry.lines) {
+        // We need to fetch account details for each line
+        const account = await ChartOfAccounts.findById(entryLine.accountId);
+        if (!account) continue;
+        
+        const accountName = `${account.code} - ${account.name}`;
+        const debitAmount = parseFloat(entryLine.debitAmount);
+        const creditAmount = parseFloat(entryLine.creditAmount);
+        const netAmount = debitAmount - creditAmount;
 
-        switch (account.accountType) {
-          case 'Revenue':
+        switch (account.type) {
+          case 'income':
             if (!revenue[accountName]) revenue[accountName] = 0;
             revenue[accountName] += Math.abs(netAmount); // Revenue is shown as positive
             break;
-          case 'Expense':
+          case 'expense':
             if (!expenses[accountName]) expenses[accountName] = 0;
             expenses[accountName] += Math.abs(netAmount); // Expenses are shown as positive
             break;
-          case 'Asset':
+          case 'asset':
             if (!assets[accountName]) assets[accountName] = 0;
             assets[accountName] += netAmount; // Assets increase with debits
             break;
-          case 'Liability':
+          case 'liability':
             if (!liabilities[accountName]) liabilities[accountName] = 0;
             liabilities[accountName] += -netAmount; // Liabilities increase with credits
             break;
-          case 'Equity':
+          case 'equity':
             if (!equity[accountName]) equity[accountName] = 0;
             equity[accountName] += -netAmount; // Equity increases with credits
             break;
