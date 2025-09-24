@@ -6,7 +6,7 @@ import JournalEntry, { IJournalEntryLine } from '@/models/JournalEntry';
 import ChartOfAccounts from '@/models/ChartOfAccounts';
 import mongoose from 'mongoose';
 
-export async function POST(
+ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
